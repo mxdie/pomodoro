@@ -3,6 +3,7 @@ import("//build/lite/ndk/ndk.gni")
 
 pomodoro_sources = []
 pomodoro_sources += [
+<<<<<<< HEAD
     "./software/pmdr_main.c",
     "./software/pmdr_log.c",
     "./software/pmdr_os.c",
@@ -16,6 +17,13 @@ config("pomodoro_config") {
     "//kernel/liteos_m/components/bounds_checking_function/include",
     "//foundation/communication/wifi_lite/interfaces/wifiservice",
   ]
+=======
+    "./software/pmd_main.c"
+]
+
+config("pomodoro_config") {
+  include_dirs = [ "./software/include" ]
+>>>>>>> 77b56f1ecf5959b5c5349782aab533b1f44956bf
 }
 
 static_library("pomodoro_static") {
