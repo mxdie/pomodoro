@@ -1,4 +1,21 @@
-# Copyright (C) 2020 Hisilicon (Shanghai) Technologies Co., Ltd. All rights reserved.
+import("//build/lite/config/component/lite_component.gni")
+import("//build/lite/ndk/ndk.gni")
+
+pomodoro_sources = []
+pomodoro_sources += [
+    "./software/pmd_main.c"
+]
+
+config("pomodoro_config") {
+  include_dirs = [ "./software/include" ]
+}
+
+static_library("pomodoro_static") {
+  sources = pomodoro_sources
+  output_name = "pomodoro"
+  public_configs = [ ":pomodoro_config" ]
+}
 
 group("pomodoro") {
+    deps = [ ":pomodoro_static" ]
 }

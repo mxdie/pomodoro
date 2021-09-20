@@ -7,12 +7,6 @@
     "kernel_version": "",
     "subsystems": [
       {
-        "subsystem": "applications",
-        "components": [
-          { "component": "wifi_iot_sample_app", "features":[] }
-        ]
-      },
-      {
         "subsystem": "iot_hardware",
         "components": [
           { "component": "iot_controller", "features":[] }
@@ -21,8 +15,7 @@
       {
         "subsystem": "hiviewdfx",
         "components": [
-          { "component": "hilog_lite", "features":[] },
-          { "component": "hievent_lite", "features":[] }
+          { "component": "hilog_lite", "features":[] }
         ]
       },
       {
@@ -32,42 +25,9 @@
         ]
       },
       {
-        "subsystem": "security",
-        "components": [
-          { "component": "hichainsdk", "features":[] },
-          { "component": "huks", "features":
-            [
-              "disable_huks_binary = false",
-              "disable_authenticate = false"
-            ]
-          }
-        ]
-      },
-      {
-        "subsystem": "startup",
-        "components": [
-          { "component": "bootstrap", "features":[] },
-          { "component": "syspara", "features":[] }
-        ]
-      },
-      {
         "subsystem": "communication",
         "components": [
-          { "component": "wlan", "features":[] },
-          { "component": "soft_bus", "features":[] },
-          { "component": "wifi_aware", "features":[]}
-        ]
-      },
-      {
-        "subsystem": "update",
-        "components": [
-          { "component": "hota", "features":[] }
-        ]
-      },
-      {
-        "subsystem": "iot",
-        "components": [
-          { "component": "iot_link", "features":[] }
+          { "component": "wlan", "features":[] }
         ]
       },
       {
@@ -82,13 +42,6 @@
         "subsystem": "vendor",
         "components": [
           { "component": "hi3861_sdk", "target": "//device/hisilicon/hispark_pegasus/sdk_liteos:wifiiot_sdk", "features":[] }
-        ]
-      },
-      {
-       "subsystem": "test",
-       "components": [
-         { "component": "xts_acts", "features":[] },
-         { "component": "xts_tools", "features":[] }
         ]
       }
     ],
