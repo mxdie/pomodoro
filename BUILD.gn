@@ -1,4 +1,29 @@
-# Copyright (C) 2020 Hisilicon (Shanghai) Technologies Co., Ltd. All rights reserved.
+import("//build/lite/config/component/lite_component.gni")
+import("//build/lite/ndk/ndk.gni")
+
+pomodoro_sources = []
+pomodoro_sources += [
+    "./software/pmdr_main.c",
+    "./software/pmdr_log.c",
+    "./software/pmdr_os.c",
+    "./software/pmdr_wifi.c",
+]
+
+config("pomodoro_config") {
+  include_dirs = [ "./software/include",
+    "//utils/native/lite/include",
+    "//kernel/liteos_m/kal/cmsis",
+    "//kernel/liteos_m/components/bounds_checking_function/include",
+    "//foundation/communication/wifi_lite/interfaces/wifiservice",
+  ]
+}
+
+static_library("pomodoro_static") {
+  sources = pomodoro_sources
+  output_name = "pomodoro"
+  public_configs = [ ":pomodoro_config" ]
+}
 
 group("pomodoro") {
+    deps = [ ":pomodoro_static" ]
 }
