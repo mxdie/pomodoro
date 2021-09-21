@@ -1,9 +1,11 @@
 #include "pmdr_wifi.h"
+#include <stdbool.h>
 #include "pmdr_config.h"
 #include "wifi_device.h"
 #include "wifi_device_config.h"
+#include "wifi_linked_info.h"
 #include "securec.h"
-#include "pmdr_def.h"
+
 #include "pmdr_error.h"
 #include "pmdr_log.h"
 #include "pmdr_os.h"
@@ -74,11 +76,19 @@ static void OnWifiConnectionChanged(int state, WifiLinkedInfo* info)
 
 static void OnWifiScanStateChanged(int state, int size)
 {
-    PMDR_INFO("wifi scan finish state[%d] size[%d]", state, size);
+    PMDR_LOG_INFO("wifi scan finish state[%d] size[%d]", state, size);
     if (state == WIFI_STATE_AVALIABLE) {
         g_isScanFinsh = true;
     }
 }
+
+static WifiEvent g_wifiEvent = {
+    OnWifiConnectionChanged,
+    OnWifiScanStateChanged,
+    NULL,
+    NULL,
+    NULL
+};
 
 static int WifiConectInit(void)
 {
@@ -88,15 +98,8 @@ static int WifiConectInit(void)
         return PMDR_ERROR;
     }
 
-    WifiEvent event = {
-        OnWifiConnectionChanged,
-        OnWifiScanStateChanged,
-        NULL,
-        NULL,
-        NULL
-    };
-    /* 注册wifi回调 */
-    if (RegisterWifiEvent(&event) != WIFI_SUCCESS) {
+    /* 注册wifi回调，3861这里的实现有问题，没有拷贝回调指针，而是直接把入参记下了，导致入参只能用全局变量，铸币吧 */
+    if (RegisterWifiEvent(&g_wifiEvent) != WIFI_SUCCESS) {
         PMDR_LOG_ERROR("register wifi event failed");
         return PMDR_ERROR;
     }
@@ -150,35 +153,34 @@ static int GetNetId(const WifiDeviceConfig *config)
     }
     unsigned int size = 0;
     if (GetDeviceConfigs(allConfig, &size) != WIFI_SUCCESS) {
-        PMDR_LOG_ERROR("get config error");
-        free(allConfig);
-        allConfig = NULL;
-        return -1;
-    }
-    unsigned int index;
-    for (index = 0; index < size; ++index) {
-        if ((strlen(allConfig[index].ssid) == strlen(config->ssid)) &&
-            (strlen(allConfig[index].preSharedKey) == strlen(config->preSharedKey)) &&
-            (strncmp(allConfig[index].ssid, config->ssid, strlen(config->ssid)) == 0) &&
-            (strncmp(allConfig[index].preSharedKey, config->preSharedKey, strlen(config->preSharedKey)) == 0) &&
-            (memcmp(allConfig[index].bssid, config->bssid, WIFI_MAC_LEN) == 0)) {
-            break;
+        /* 3861没有配置文件也会反回错误，铸币吧 */
+        PMDR_LOG_WARNING("get config error");
+    } else {
+        unsigned int index;
+        for (index = 0; index < size; ++index) {
+            if ((strlen(allConfig[index].ssid) == strlen(config->ssid)) &&
+                (strlen(allConfig[index].preSharedKey) == strlen(config->preSharedKey)) &&
+                (strncmp(allConfig[index].ssid, config->ssid, strlen(config->ssid)) == 0) &&
+                (strncmp(allConfig[index].preSharedKey, config->preSharedKey, strlen(config->preSharedKey)) == 0) &&
+                (memcmp(allConfig[index].bssid, config->bssid, WIFI_MAC_LEN) == 0)) {
+                break;
+            }
         }
-    }
-    if (index != size) {
-        free(allConfig);
-        allConfig = NULL;
-        PMDR_LOG_INFO("find config, netid[%d]", allConfig[index].netId);
-        return allConfig[index].netId;
-    }
-    /* 如果找不到已存配置，且配置已满，则删除第一个配置文件 */
-    if (size == WIFI_MAX_CONFIG_SIZE) {
-        PMDR_LOG_INFO("config full, remove first one");
-        if (RemoveDevice(allConfig[0].netId) != WIFI_SUCCESS) {
+        if (index != size) {
             free(allConfig);
             allConfig = NULL;
-            PMDR_LOG_ERROR("remove config error");
-            return -1;
+            PMDR_LOG_INFO("find config, netid[%d]", allConfig[index].netId);
+            return allConfig[index].netId;
+        }
+        /* 如果找不到已存配置，且配置已满，则删除第一个配置文件 */
+        if (size == WIFI_MAX_CONFIG_SIZE) {
+            PMDR_LOG_INFO("config full, remove first one");
+            if (RemoveDevice(allConfig[0].netId) != WIFI_SUCCESS) {
+                free(allConfig);
+                allConfig = NULL;
+                PMDR_LOG_ERROR("remove config error");
+                return -1;
+            }
         }
     }
     free(allConfig);
@@ -228,7 +230,8 @@ static int WifiConnect(void)
     WifiDeviceConfig config;
     (void)memset_s(&config, sizeof(WifiDeviceConfig), 0, sizeof(WifiDeviceConfig));
     config.freq = scanList[index].frequency;
-    config.securityType = scanList[index].securityType;
+    //TODO 加密方式ohos与hisi不匹配
+    config.securityType = WIFI_SEC_TYPE_SAE;//scanList[index].securityType;
     config.wapiPskType = WIFI_PSK_TYPE_ASCII;
     memcpy_s(config.bssid, WIFI_MAC_LEN, scanList[index].bssid, WIFI_MAC_LEN);
     memcpy_s(config.ssid, WIFI_MAX_SSID_LEN, g_wifiSsid, WIFI_MAX_SSID_LEN);
@@ -241,7 +244,7 @@ static int WifiConnect(void)
         return PMDR_ERROR;
     }
     
-    PMDR_LOG_PRINT("connect to ssid:[%s]", config.ssid);
+    PMDR_LOG_PRINT("connect to ssid:[%s], netId[%d]", config.ssid, netId);
     if (ConnectTo(netId) != WIFI_SUCCESS) {
         free(scanList);
         scanList = NULL;
@@ -249,6 +252,8 @@ static int WifiConnect(void)
         return PMDR_ERROR;
     }
 
+    free(scanList);
+    scanList = NULL;
     return PMDR_OK;
 }
 
@@ -351,4 +356,27 @@ int PmdrWifiConnctProcess(void)
     }
     
     return err;
+}
+
+int PmdrWaitingNetwork(void)
+{
+    WifiLinkedInfo info;
+    (void)memset_s(&info, sizeof(WifiLinkedInfo), 0, sizeof(WifiLinkedInfo));
+
+    if (GetLinkedInfo(&info) != WIFI_SUCCESS) {
+        PMDR_LOG_ERROR("get link info error");
+        return PMDR_ERROR;
+    }
+
+    if (info.connState == WIFI_DISCONNECTED) {
+        return PMDR_PASS;
+    }
+
+    PMDR_LOG_PRINT("-------------wifi connect ok-------------");
+    PMDR_LOG_PRINT("ssid: %s", info.ssid);
+    PMDR_LOG_PRINT("mac : %2x:%2x:%2x:%2x:%2x:%2x", info.bssid[0], info.bssid[1], info.bssid[2],
+        info.bssid[3], info.bssid[4], info.bssid[5]);
+    PMDR_LOG_PRINT("ip  : %s", inet_ntoa(info.ipAddress));
+    PMDR_LOG_PRINT("-----------------------------------------");
+    return PMDR_OK;
 }

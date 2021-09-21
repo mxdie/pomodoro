@@ -25,6 +25,13 @@
         ]
       },
       {
+        "subsystem": "startup",
+        "components": [
+          { "component": "bootstrap", "features":[] },
+          { "component": "syspara", "features":[] }
+        ]
+      },
+      {
         "subsystem": "communication",
         "components": [
           { "component": "wlan", "features":[] }

@@ -4,6 +4,7 @@
 #include "pmdr_log.h"
 #include "pmdr_def.h"
 #include "pmdr_os.h"
+#include "pmdr_wifi.h"
 #include "pmdr_error.h"
 #include "securec.h"
 
@@ -11,6 +12,9 @@ typedef enum {
     PMDR_MAIN_STATE_INVALID = -1,
     PMDR_MAIN_STATE_INTI,
     PMDR_MAIN_STATE_CONNECT_WIFI,
+    PMDR_MAIN_STATE_WAITING_NETWORK,
+    PMDR_MAIN_STATE_GET_TIME,
+    PMDR_MAIN_STATE_FINSH
 } PmdrMainState;
 
 static PmdrMainState g_mainState = PMDR_MAIN_STATE_INTI;
@@ -29,18 +33,36 @@ static void SetMainState(PmdrMainState state)
 
 int PmdrMainProcess(void)
 {
+    int ret = PMDR_PASS;
     PmdrMainState state = GetMainState();
     switch (state) {
         case PMDR_MAIN_STATE_INTI:
             SetMainState(PMDR_MAIN_STATE_CONNECT_WIFI);
             break;
         case PMDR_MAIN_STATE_CONNECT_WIFI:
+            ret = PmdrWifiConnctProcess();
+            if (ret != PMDR_PASS) {
+                SetMainState((ret == PMDR_OK) ? PMDR_MAIN_STATE_WAITING_NETWORK :
+                    PMDR_MAIN_STATE_FINSH);
+            }
+            break;
+        case PMDR_MAIN_STATE_WAITING_NETWORK:
+            ret = PmdrWaitingNetwork();
+            if (ret != PMDR_PASS) {
+                SetMainState((ret == PMDR_OK) ? PMDR_MAIN_STATE_GET_TIME :
+                    PMDR_MAIN_STATE_FINSH);
+            }
+        case PMDR_MAIN_STATE_GET_TIME:
+
+            break;
+        case PMDR_MAIN_STATE_FINSH:
+            ret = PMDR_ERROR;
             break;
         default:
             PMDR_LOG_ERROR("invalid state[%d]", state);
             break;
     }
-    return PMDR_PASS;
+    return ret;
 }
 
 int MainTaskInit(void)
@@ -56,11 +78,13 @@ int MainTaskInit(void)
 void PmdrAppMain(void *arg)
 {
     (void)arg;
+    /* sleep 100个tick，避免与系统初始化冲突 */
+    osDelay(100);
     PMDR_LOG_PRINT("pomodoro start");
     if (MainTaskInit() != PMDR_OK) {
         PMDR_LOG_ERROR("main task init error");
         return;
-    }
+    }   
 
     while (PmdrMainProcess() == PMDR_PASS) {
         PmdrSleep(PMDR_TASK_INTERVAL);

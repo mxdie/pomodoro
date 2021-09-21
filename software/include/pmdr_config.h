@@ -3,7 +3,7 @@
 
 /* --------------任务属性配置-------------- */
 /* 任务栈大小 */
-#define PMDR_TASK_SIZE      (8192)
+#define PMDR_TASK_SIZE      (0x1000)
 /* 主状态机间隔，单位ms */
 #define PMDR_TASK_INTERVAL  50
 /* --------------------------------------- */
@@ -17,12 +17,12 @@
 #define PMDR_LOG_LEVEL_INFO     4
 #define PMDR_LOG_LEVEL_DEBUG    5
 
-#define PMDR_LOG_LEVEL  PMDR_LOG_LEVLE_DEBUG
+#define PMDR_LOG_LEVEL  PMDR_LOG_LEVEL_DEBUG
 /* --------------------------------------- */
 
 /* ---------------wifi账号密码------------- */
-#define PMDR_WIFI_SSID      "test"
-#define PMDR_WIFI_PWD       "test"
+#define PMDR_WIFI_SSID      "HiLink_IoT"
+#define PMDR_WIFI_PWD       "justformijia"
 /* --------------------------------------- */
 
 #endif /* PMDR_CONFIG_H */
