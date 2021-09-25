@@ -25,4 +25,8 @@
 #define PMDR_WIFI_PWD       "justformijia"
 /* --------------------------------------- */
 
+/* ---------------sntp server------------- */
+#define SNTP_SERVER_IP      "203.107.6.88"
+/* --------------------------------------- */
+
 #endif /* PMDR_CONFIG_H */

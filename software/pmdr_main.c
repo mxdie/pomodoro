@@ -7,12 +7,13 @@
 #include "pmdr_wifi.h"
 #include "pmdr_error.h"
 #include "securec.h"
+#include "lwip/sntp.h" 
+#include "lwip/err.h"
 
 typedef enum {
     PMDR_MAIN_STATE_INVALID = -1,
     PMDR_MAIN_STATE_INTI,
     PMDR_MAIN_STATE_CONNECT_WIFI,
-    PMDR_MAIN_STATE_WAITING_NETWORK,
     PMDR_MAIN_STATE_GET_TIME,
     PMDR_MAIN_STATE_FINSH
 } PmdrMainState;
@@ -31,29 +32,43 @@ static void SetMainState(PmdrMainState state)
     return;
 }
 
+
+static int PmdrGetTime(void)
+{
+    int ret;
+    int serverNum = 1;
+    char *sntpServer = SNTP_SERVER_IP;
+    struct timeval timeLocal;
+    memset_s(&timeLocal, 0, sizeof(timeLocal), 0);
+    extern int lwip_sntp_start(int server_num, char **sntp_server, struct timeval *time);
+    ret = lwip_sntp_start(serverNum, &sntpServer, &timeLocal);
+    PMDR_LOG_PRINT("Recevied time from server = [%li]sec [%li]u sec\n", timeLocal.tv_sec, timeLocal.tv_usec);
+    if (ret != ERR_OK) {
+        PMDR_LOG_ERROR("lwip sntp error");
+        return PMDR_ERROR;
+    }
+    PMDR_LOG_PRINT("Recevied time from server = [%li]sec [%li]u sec\n", timeLocal.tv_sec, timeLocal.tv_usec);
+    return PMDR_OK;
+}
+
 int PmdrMainProcess(void)
 {
     int ret = PMDR_PASS;
+    int err;
     PmdrMainState state = GetMainState();
     switch (state) {
         case PMDR_MAIN_STATE_INTI:
             SetMainState(PMDR_MAIN_STATE_CONNECT_WIFI);
             break;
         case PMDR_MAIN_STATE_CONNECT_WIFI:
-            ret = PmdrWifiConnctProcess();
-            if (ret != PMDR_PASS) {
-                SetMainState((ret == PMDR_OK) ? PMDR_MAIN_STATE_WAITING_NETWORK :
-                    PMDR_MAIN_STATE_FINSH);
+            err = PmdrWifiConnctProcess();
+            if (err != PMDR_PASS) {
+                SetMainState((err == PMDR_OK) ? PMDR_MAIN_STATE_GET_TIME :
+                    PMDR_MAIN_STATE_INTI);
             }
             break;
-        case PMDR_MAIN_STATE_WAITING_NETWORK:
-            ret = PmdrWaitingNetwork();
-            if (ret != PMDR_PASS) {
-                SetMainState((ret == PMDR_OK) ? PMDR_MAIN_STATE_GET_TIME :
-                    PMDR_MAIN_STATE_FINSH);
-            }
         case PMDR_MAIN_STATE_GET_TIME:
-
+            err = PmdrGetTime();
             break;
         case PMDR_MAIN_STATE_FINSH:
             ret = PMDR_ERROR;

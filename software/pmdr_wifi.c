@@ -31,6 +31,7 @@ typedef enum {
     PDMD_WIFI_WAITING_SCAN,
     PMDR_WIFI_CONNECT,
     PMDR_WIFI_WAITING_CONNECT,
+    PMDR_WIFI_WAITING_NETWORK,
     PMDR_WIFI_FINISH,
     PMDR_WIFI_FAILED,
 } PmdrWifiState;
@@ -191,7 +192,7 @@ static int GetNetId(const WifiDeviceConfig *config)
         PMDR_LOG_ERROR("add wifi config error");
         return -1;
     }
-    
+    PMDR_LOG_INFO("add config, netid[%d]", netId);
     return netId;
 }
 
@@ -229,10 +230,13 @@ static int WifiConnect(void)
 
     WifiDeviceConfig config;
     (void)memset_s(&config, sizeof(WifiDeviceConfig), 0, sizeof(WifiDeviceConfig));
-    config.freq = scanList[index].frequency;
-    //TODO 加密方式ohos与hisi不匹配
-    config.securityType = WIFI_SEC_TYPE_SAE;//scanList[index].securityType;
+    /* 这里freq如果赋值为scanList[index].frequency，会触发快联，ConnectTo时会报错 */
+    config.freq = 0;
+    /* 加密方式ohos与hisi不匹配 */
+    config.securityType = (scanList[index].securityType == WIFI_SEC_TYPE_INVALID) ? 
+        WIFI_SEC_TYPE_PSK : scanList[index].securityType;
     config.wapiPskType = WIFI_PSK_TYPE_ASCII;
+    config.ipType = DHCP;
     memcpy_s(config.bssid, WIFI_MAC_LEN, scanList[index].bssid, WIFI_MAC_LEN);
     memcpy_s(config.ssid, WIFI_MAX_SSID_LEN, g_wifiSsid, WIFI_MAX_SSID_LEN);
     memcpy_s(config.preSharedKey, WIFI_MAX_KEY_LEN, g_wifiPwd, WIFI_MAX_KEY_LEN);
@@ -294,6 +298,33 @@ static void ResetWifiConnect(void) {
     g_wifiState = PMDR_WIFI_STATE_INIT;
 }
 
+int PmdrWaitingNetwork(void)
+{
+    WifiLinkedInfo info;
+    (void)memset_s(&info, sizeof(WifiLinkedInfo), 0, sizeof(WifiLinkedInfo));
+
+    if (GetLinkedInfo(&info) != WIFI_SUCCESS) {
+        PMDR_LOG_ERROR("get link info error");
+        return PMDR_ERROR;
+    }
+
+    if (info.connState == WIFI_DISCONNECTED || info.ipAddress == 0) {
+        return PMDR_PASS;
+    }
+    unsigned char mac[WIFI_MAC_LEN] = {0};
+    if (GetDeviceMacAddress(mac) != WIFI_SUCCESS) {
+        PMDR_LOG_ERROR("get mac error");
+        return PMDR_ERROR;
+    }
+
+    PMDR_LOG_PRINT("-------------wifi connect ok-------------");
+    PMDR_LOG_PRINT("ssid: %s", info.ssid);
+    PMDR_LOG_PRINT("mac : %2x:%2x:%2x:%2x:%2x:%2x", mac[0], mac[1], mac[2],mac[3], mac[4], mac[5]);
+    PMDR_LOG_PRINT("ip  : %s", inet_ntoa(info.ipAddress));
+    PMDR_LOG_PRINT("-----------------------------------------");
+    return PMDR_OK;
+}
+
 /* 返回PMDR_OK或PMDR_ERROR退出状态机 */
 int PmdrWifiConnctProcess(void)
 {
@@ -339,6 +370,12 @@ int PmdrWifiConnctProcess(void)
         case PMDR_WIFI_WAITING_CONNECT:
             ret = WaitWifiConnect();
             if (ret != PMDR_PASS) {
+                SetWifiState((ret == PMDR_OK) ? PMDR_WIFI_WAITING_NETWORK : PMDR_WIFI_FAILED);
+            }
+            break;
+        case PMDR_WIFI_WAITING_NETWORK:
+            ret = PmdrWaitingNetwork();
+            if (ret != PMDR_PASS) {
                 SetWifiState((ret == PMDR_OK) ? PMDR_WIFI_FINISH : PMDR_WIFI_FAILED);
             }
             break;
@@ -356,27 +393,4 @@ int PmdrWifiConnctProcess(void)
     }
     
     return err;
-}
-
-int PmdrWaitingNetwork(void)
-{
-    WifiLinkedInfo info;
-    (void)memset_s(&info, sizeof(WifiLinkedInfo), 0, sizeof(WifiLinkedInfo));
-
-    if (GetLinkedInfo(&info) != WIFI_SUCCESS) {
-        PMDR_LOG_ERROR("get link info error");
-        return PMDR_ERROR;
-    }
-
-    if (info.connState == WIFI_DISCONNECTED) {
-        return PMDR_PASS;
-    }
-
-    PMDR_LOG_PRINT("-------------wifi connect ok-------------");
-    PMDR_LOG_PRINT("ssid: %s", info.ssid);
-    PMDR_LOG_PRINT("mac : %2x:%2x:%2x:%2x:%2x:%2x", info.bssid[0], info.bssid[1], info.bssid[2],
-        info.bssid[3], info.bssid[4], info.bssid[5]);
-    PMDR_LOG_PRINT("ip  : %s", inet_ntoa(info.ipAddress));
-    PMDR_LOG_PRINT("-----------------------------------------");
-    return PMDR_OK;
 }

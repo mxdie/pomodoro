@@ -15,6 +15,7 @@ config("pomodoro_config") {
     "//kernel/liteos_m/kal/cmsis",
     "//kernel/liteos_m/components/bounds_checking_function/include",
     "//foundation/communication/wifi_lite/interfaces/wifiservice",
+    "//device/hisilicon/hispark_pegasus/sdk_liteos/third_party/lwip_sack/include",
   ]
 }
 
